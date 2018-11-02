@@ -9,7 +9,7 @@ import abc
 import uuid
 import inspect
 
-import MyUtilities
+import Utilities as MyUtilities
 
 #Required Modules
 ##py -m pip install
@@ -997,13 +997,10 @@ class Exe_Pynsist(Exe_Base):
 
 		builder.run()
 
-class Exe_InnoSetup(Exe_Base):
+class Exe_InnoSetup(Utilities):
 	"""Install Inno Setup at: http://www.jrsoftware.org/isdl.php"""
 
-	def __init__(self, *args, icon = None, setupFile = None, sourceFile = None, 
-		icon_desktop_state = False, icon_desktop_name = None, startMenu_Folder = None, 
-		pythonPath = None, script = None,  
-		defaultDir = None, innoSetup_installDir = None, icon_installer = None, **kwargs):
+	def __init__(self, **kwargs):
 		"""Helps create an inno setup installer.
 
 		innoSetup_installDir (str) - Where Inno Setup was installed to
@@ -1011,234 +1008,437 @@ class Exe_InnoSetup(Exe_Base):
 		Exe_InnoSetup("runMe")
 		"""
 
-		super().__init__(script, *args, **kwargs)
+		for variable, value in kwargs.items():
+			setattr(self, variable, value)
 
-		self.icon = icon
-		self.setupFile = setupFile
-		self.sourceFile = sourceFile
-		self.defaultDir = defaultDir
-		self.icon_installer = icon_installer
-		self.icon_desktop_name = icon_desktop_name
-		self.icon_desktop_state = icon_desktop_state
-		self.innoSetup_installDir = innoSetup_installDir
+	#App Information Properties
+	@MyUtilities.common.lazyProperty()
+	def uuid(self, value):
+		"""Changes the uuid for the program."""
 
-		self.startMenu_Folder = startMenu_Folder
-		self.pythonPath = pythonPath
-		self.script = script
+		return value or uuid.uuid4()
 
-	@makeProperty
-	def icon_installer():
+	@MyUtilities.common.lazyProperty()
+	def version(self, value, *, default = "unknown"):
+		"""What version the program is."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def publisher(self, value, *, default = None):
+		"""Who the publisher is."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def publisherWebsite(self, value, *, default = None):
+		"""The publisher's url."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def supportWebsite(self, value, *, default = None):
+		"""The support url."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def supportPhone(self, value, *, default = None):
+		"""The support phone number."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def updateWebsite(self, value, *, default = None):
+		"""The updates url."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def readmeWebsite(self, value, *, default = None):
+		"""The readme url."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def preInfoPage(self, value, *, default = None):
+		"""The a text file that will be displayed as a wizard page before the user selects where to install the app."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def postInfoPage(self, value, *, default = None):
+		"""The a text file that will be displayed as a wizard page after a sucessful install."""
+		
+		return value or default
+
+	#Installer Properties
+	@MyUtilities.common.lazyProperty()
+	def defaultDir(self, value):
+		"""Changes the default install directory for the installer."""
+		
+		return value or self.name
+
+	@MyUtilities.common.lazyProperty()
+	def startMenuDir(self, value):
+		"""Changes the default start menu folder for the created .exe."""
+		
+		return value or self.name
+
+	@MyUtilities.common.lazyProperty()
+	def startMenu_subFolder(self, value, *, default = None):
+		"""What folder in the start menu folder to place the start icon in."""
+		
+		if (value is None):
+			value = default
+		if (value is None):
+			return "{group}"
+		return f"{{group}}\{value}"
+
+	@MyUtilities.common.lazyProperty()
+	def canCancel(self, value, *, default = True):
+		"""Determines if the user can cancel the install or not."""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def canRestart(self, value, *, default = True):
+		"""Determines if the program can show a restart message at the end of the installation if one is needed."""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def skip_startupMessage(self, value, *, default = True):
+		"""Determines if a message asking if the user wants to install this before running the installer."""
+		
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def skip_welcomePage(self, value, *, default = True):
+		"""Determines if the installer's welcome page should be shown or not."""
+		
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def update_fileAssociations(self, value, *, default = True):
+		"""Determines file associations are updated upon install and uninstall."""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def update_environment(self, value, *, default = True):
+		"""Determines environment variables are updated upon install and uninstall."""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def closeApps(self, value, *, default = False):
+		"""Determines what happens if the installer needs to modify a file that is being used by another program.
+			- If None: Will try using them anyways
+			- If True: Will try forcing those apps to close before continuing
+			- If False: Will ask if those apps should be closed before continuing
+		"""
+		
+		if (value is None):
+			return 0
+		if (value):
+			return "force"
+		return 1
+
+	@MyUtilities.common.lazyProperty()
+	def restartApps(self, value, *, default = None):
+		"""Determines what happens once the installer is finished if the installer has closed an application.
+			- If True: Will try restarting closed applications
+			- If False: Nothing
+			- If None: Nothing
+		"""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def forceLogging(self, value, *, default = None):
+		"""Determines if a log file (from the install?) will always be created or not."""
+		
+		if (value is None):
+			return None
+		if (value):
+			return 1
+		return 0
+
+	@MyUtilities.common.lazyProperty()
+	def windows_minVersion(self, value, *, default = None):
+		"""What the minimum windows version the installer will work for.
+		Must be greater than 5.0
+
+		5.0.2195 - Windows 2000 
+		5.1.2600 - Windows XP or Windows XP 64-Bit Edition Version 2002 (Itanium) 
+		5.2.3790 - Windows Server 2003 or Windows XP x64 Edition (AMD64/EM64T) or Windows XP 64-Bit Edition Version 2003 (Itanium) 
+		6.0.6000 - Windows Vista 
+		6.0.6001 - Windows Vista with Service Pack 1 or Windows Server 2008 
+		6.1.7600 - Windows 7 or Windows Server 2008 R2 
+		6.1.7601 - Windows 7 with Service Pack 1 or Windows Server 2008 R2 with Service Pack 1 
+		6.2.9200 - Windows 8 or Windows Server 2012 
+		6.3.9200 - Windows 8.1 or Windows Server 2012 R2 
+		6.3.9600 - Windows 8.1 with Update 1 
+		10.0.10240 - Windows 10 Version 1507 
+		10.0.10586 - Windows 10 Version 1511 (November Update) 
+		10.0.14393 - Windows 10 Version 1607 (Anniversary Update) 
+		10.0.15063 - Windows 10 Version 1703 (Creators Update) 
+		10.0.16299 - Windows 10 Version 1709 (Fall Creators Update) 
+		10.0.17134 - Windows 10 Version 1803 (April 2018 Update) 
+
+
+		Example Use:
+			windows_minVersion = 10.0
+			windows_minVersion = 5.0.2195
+			windows_minVersion = 5.0sp4
+			windows_minVersion = 5.0.2195sp4
+		"""
+		
+		answer = value or default
+		if (answer is None):
+			return None
+
+		check = f"{answer}".split(".")
+		if ((len(check) < 2) or (int(check[0]) < 5)):
+			errorMessage = f"Invalid windows version {answer}"
+			raise KeyError(errorMessage)
+
+		return answer
+
+	@MyUtilities.common.lazyProperty()
+	def windows_maxVersion(self, value, *, default = None):
+		"""What the maximum windows version the installer will work for."""
+		
+		answer = value or default
+		if (answer is None):
+			return None
+
+		return answer
+
+	#Uninstaller Properties
+	@MyUtilities.common.lazyProperty()
+	def regkey_uninstall(self, value, *, default = True):
+		"""Determines a registry key should be created for the uninstaller or not."""
+		
+		if (value):
+			return 1
+		return 0
+
+	#Directory Properties
+	@MyUtilities.common.lazyProperty()
+	def innoSetup_installDir(self, value, *, default = "C:/Program Files (x86)/Inno Setup 5"):
+		"""Where Inno Setup is installed."""
+	
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def manifest(self, value, *, default = None):
+		"""Where to place the output manifest file."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def setupFile(self, value, *, default = "H:/Python/modules/API_Exe/default_setup.iss"):
+		"""Where the setup file is located"""
+		
+		return self.ensure_filePath(value, ending = ".iss", default = default)
+
+	@MyUtilities.common.lazyProperty()
+	def sourceFile(self, value, *, default = None):
+		"""Where the source folder is located."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def pythonPath(self, value, *, default = "//dmte3/MaterialDB/Python36/pythonw.exe"):
+		"""Where pythonw.exe is installed at."""
+		
+		return self.ensure_filePath(value, ending = "pythonw.exe", default = default)
+
+	@MyUtilities.common.lazyProperty()
+	def script(self, value, *, default = None):
+		"""Where the script is located."""
+		
+		return self.ensure_filePath(value, ending = ".py", default = default)
+
+	@MyUtilities.common.lazyProperty()
+	def dirExistsWarning(self, value, *, default = False):
+		"""Determines what happens if the user selects a directory that already exists.
+			- If None: Will never show a warning
+			- If True: Will always show a warning
+			- If False: Will only show a warning if another version of the same app is already installed there
+		"""
+		
+		if (value is None):
+			return 0
+		if (value):
+			return 1
+		return "auto"
+
+	#Icon Properties
+	@MyUtilities.common.lazyProperty()
+	def icon_installer(self, value, *, default = None):
 		"""What icon the installer has."""
 		
-		def getter(self):
-			return self._icon_installer
+		return self.ensure_filePath(value, ending = ".ico", default = default)
 
-		def setter(self, value):
-			self._icon_installer = self.ensure_filePath(value, ending = ".ico", default = None)
-
-		def deleter(self):
-			del self._icon_installer
-
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	icon_installer = property(**icon_installer(), doc = icon_installer.__doc__)
-
-	def icon():
+	@MyUtilities.common.lazyProperty()
+	def icon(self, value, *, default = None):
 		"""What icon the generated .exe file has."""
 		
-		def getter(self):
-			return self._icon
+		return self.ensure_filePath(value, ending = ".ico", default = default)
 
-		def setter(self, value):
-			self._icon = self.ensure_filePath(value, ending = ".ico", default = None)
-
-		def deleter(self):
-			del self._icon
-
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	icon = property(**icon(), doc = icon.__doc__)
-
-	def icon_desktop_state():
+	@MyUtilities.common.lazyProperty()
+	def icon_desktop_state(self, value, *, default = None):
 		"""Determines if an icon can be placed on the desktop.
 			- If None: Do not give the option
 			- If True: Check the box by default
 			- If False: Do not check the box by default
 		"""
-		
-		def getter(self):
-			return self._icon_desktop_state
 
-		def setter(self, value):
-			if (value is None):
-				self._icon_desktop_state = None
-			elif (value):
-				self._icon_desktop_state = "checked"
-			else:
-				self._icon_desktop_state = "unchecked"
+		if (value is None):
+			value = default
 
-		def deleter(self):
-			del self._icon_desktop_state
+		if (value is None):
+			return None
+		if (value):
+			return "checked"
+		return "unchecked"
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	icon_desktop_state = property(**icon_desktop_state(), doc = icon_desktop_state.__doc__)
-
-	def icon_desktop_name():
+	@MyUtilities.common.lazyProperty()
+	def icon_desktop_name(self, value, *, default = None):
 		"""What the icon on the desktop should say.
 			- If None: Will use the app's name
 		"""
-		
-		def getter(self):
-			return self._icon_desktop_name
+	
+		return value or default
 
-		def setter(self, value):
-			self._icon_desktop_name = value or None
-
-		def deleter(self):
-			del self._icon_desktop_name
-
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	icon_desktop_name = property(**icon_desktop_name(), doc = icon_desktop_name.__doc__)
-
-	def icon_desktop_name():
+	@MyUtilities.common.lazyProperty()
+	def icon_desktop_name(self, value, *, default = None):
 		"""What the icon on the desktop should say.
 			- If None: Will use the app's name
 		"""
-		
-		def getter(self):
-			return self._icon_desktop_name
 
-		def setter(self, value):
-			self._icon_desktop_name = value or None
+		return value or default
 
-		def deleter(self):
-			del self._icon_desktop_name
+	#Functions
+	def optimize(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> Compression
+			- Setup -> CompressionThreads
+			- Setup -> LZMA*
+			- Setup -> MergeDuplicateFiles
+			- Setup -> SetupMutex
+			- Setup -> AppMutex
+			- Setup -> SolidCompression
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	icon_desktop_name = property(**icon_desktop_name(), doc = icon_desktop_name.__doc__)
+		"""
 
-	def innoSetup_installDir():
-		"""Where Inno Setup is installed."""
-		
-		def getter(self):
-			return self._innoSetup_installDir
+		raise NotImplementedError()
 
-		def setter(self, value):
-			self._innoSetup_installDir = value or "C:/Program Files (x86)/Inno Setup 5"
+	def autoStart(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> DisableFinishedPage
+			- Run -> nowait
 
-		def deleter(self):
-			del self._innoSetup_installDir
+		"""
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	innoSetup_installDir = property(**innoSetup_installDir(), doc = innoSetup_installDir.__doc__)
+		raise NotImplementedError()
 
-	def setupFile():
-		"""Where the setup file is located"""
-		
-		def getter(self):
-			return self._setupFile
+	def encrypt(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> Password
+			- Setup -> Encryption
 
-		def setter(self, value):
-			self._setupFile = self.ensure_filePath(value, ending = ".iss", default = "H:/Python/modules/API_Exe/default_setup.iss")
+		"""
 
-		def deleter(self):
-			del self._setupFile
+		raise NotImplementedError()
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	setupFile = property(**setupFile(), doc = setupFile.__doc__)
+	def language(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> LanguageDetectionMethod
+			- Setup -> ShowLanguageDialog
+			- Setup -> ShowUndisplayableLanguages
+			- Language -> *
 
-	def defaultDir():
-		"""Changes the default install directory for the installer."""
-		
-		def getter(self):
-			return self._defaultDir
+		"""
 
-		def setter(self, value):
-			self._defaultDir = value or None
+		raise NotImplementedError()
 
-		def deleter(self):
-			del self._defaultDir
+	def legal(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> LicenseFile
+			- Setup -> VersionInfo*
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	defaultDir = property(**defaultDir(), doc = defaultDir.__doc__)
+		"""
 
-	def sourceFile():
-		"""Where the source folder is located."""
-		
-		def getter(self):
-			return self._sourceFile
+		raise NotImplementedError()
 
-		def setter(self, value):
-			self._sourceFile = value or None
+	def uninstall(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> Uninstall*
 
-		def deleter(self):
-			del self._sourceFile
+		"""
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	sourceFile = property(**sourceFile(), doc = sourceFile.__doc__)
+		raise NotImplementedError()
 
-	def startMenu_Folder():
-		"""What folder in the start menu to place the start icon."""
-		
-		def getter(self):
-			return self._startMenu_Folder
+	def update_or_modify(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> UpdateUninstallLogAppName
 
-		def setter(self, value):
-			self._startMenu_Folder = value or "MyApplication"
+		"""
 
-		def deleter(self):
-			del self._startMenu_Folder
+		raise NotImplementedError()
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	startMenu_Folder = property(**startMenu_Folder(), doc = startMenu_Folder.__doc__)
+	def userInfo(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> UserInfoPage
 
-	def pythonPath():
-		"""Where pythonw.exe is installed at."""
-		
-		def getter(self):
-			return self._pythonPath
+		"""
 
-		def setter(self, value):
-			self._pythonPath = self.ensure_filePath(value, ending = "pythonw.exe", default = "//dmte3/MaterialDB/Python36/pythonw.exe")
+		raise NotImplementedError()
 
-		def deleter(self):
-			del self._pythonPath
+	def etc(self):
+		"""Use the following sections from Inno Setup Help:
+			- Setup -> Sign Tool
+			- Setup -> SourceDir
+			- Setup -> PrivilegesRequired; UsedUserAreasWarning
+			- Setup -> TerminalServicesAware
+			- Setup -> TouchDate
+			- Setup -> TouchTime
+			- Setup -> UsePrevious*
+			- Setup -> WizardImage*
 
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	pythonPath = property(**pythonPath(), doc = pythonPath.__doc__)
+		"""
 
-	def script():
-		"""Where the script is located."""
-		
-		def getter(self):
-			return self._script
+		raise NotImplementedError()
 
-		def setter(self, value):
-			self._script = self.ensure_filePath(value, ending = ".py")
-
-		def deleter(self):
-			del self._script
-
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	script = property(**script(), doc = script.__doc__)
-
-	def canCancel():
-		"""Determines if the user can cancel the install or not."""
-		
-		def getter(self):
-			return self._canCancel
-
-		def setter(self, value):
-			if ((value is None) or value):
-				self._canCancel = "yes"
-			else:
-				self._canCancel = "no"
-
-		def deleter(self):
-			del self._canCancel
-
-		return {"fget": getter, "fset": setter, "fdel": deleter}
-	canCancel = property(**canCancel(), doc = canCancel.__doc__)
-
-	def create(self, outputDir = None, *, quiet = False, logging = True, issFile = None, **innoVars):
+	def create(self, outputDir = None, *, quiet = None, issFile = None, **innoVars):
 		"""Passes the inno setup file to the compiler.
 			How to pass preProcessor commands in a cmd: 
 				Inno Setup -> Help -> Inno Setup Preprocessor -> Other Information -> Extend Command Line Compiler
@@ -1256,50 +1456,43 @@ class Exe_InnoSetup(Exe_Base):
 		"""
 
 		def yieldSwitches():
-			nonlocal outputDir, quiet, logging, innoVars
+			nonlocal outputDir, quiet, innoVars
 
 			if (outputDir is not None):
 				yield f"/O{outputDir}"
 
-			# if (quiet is not None):
-			# 	if (quiet):
-			# 		yield "/Q"
-			# 	else:
-			# 		yield "/Qp"
+			if (quiet is not None):
+				if (quiet):
+					yield "/Q"
+				else:
+					yield "/Qp"
 
-			# yield f"/logging={('no', 'yes')[logging]}"
 
 			for variable, value in innoVars.items():
 				yield f"/D{variable}={value}"
 
 		####################################
 
-		innoVars.setdefault("uuid", uuid.uuid4())
+		innoVars.setdefault("uuid", self.uuid)
 		innoVars.setdefault("appName", self.name)
 		innoVars.setdefault("appVersion", self.version)
+
 		innoVars.setdefault("sourceFile", self.sourceFile)
-		innoVars.setdefault("icon_installer", self.icon_installer)
-		innoVars.setdefault("defaultDir", self.defaultDir or innoVars["appName"])
+		innoVars.setdefault("defaultDir", self.defaultDir)
+		innoVars.setdefault("startMenuDir", self.startMenuDir)
+		innoVars.setdefault("startMenu_subFolder", self.startMenu_subFolder)
 
 		innoVars.setdefault("script", self.script)
 		innoVars.setdefault("pythonPath", self.pythonPath)
-		innoVars.setdefault("icon", self.icon)
-		innoVars.setdefault("startMenu_Folder", self.startMenu_Folder)
 
+		innoVars.setdefault("icon", self.icon)
+		innoVars.setdefault("icon_installer", self.icon_installer)
 		innoVars.setdefault("icon_desktop_state", self.icon_desktop_state)
 		innoVars.setdefault("icon_desktop_name", self.icon_desktop_name)
 
-		if (innoVars["sourceFile"] is None):
-			del innoVars["sourceFile"]
-
-		if (innoVars["icon_desktop_state"] is None):
-			del innoVars["icon_desktop_state"]
-			
-		if (innoVars["icon_desktop_name"] is None):
-			del innoVars["icon_desktop_name"]
-
-		# precompileVars = {}
-		# precompileVars["icon_installer"] = innoVars.pop("icon_installer")
+		for variable in ("sourceFile", "icon_desktop_state", "icon_desktop_name", "icon_installer"):
+			if (innoVars[variable] is None):
+				del innoVars[variable]
 
 		import subprocess
 		args = [
@@ -1314,7 +1507,8 @@ if (__name__ == "__main__"):
 	exe = build_innoSetup(script = "H:/Python/Material_Tracker/runMe.py")
 
 	exe.name = "Material Tracker"
-	exe.author = "Joshua Mayberry"
+	exe.publisher = "Decatur Mold"
+	exe.publisherWebsite = "https://www.decaturmold.com/"
 	exe.icon_installer = "H:/Python/Material_Tracker/resources/startIcon.ico"
 
 	exe.create()
