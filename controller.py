@@ -6,7 +6,10 @@ import shutil
 
 import re
 import abc
+import uuid
 import inspect
+
+import MyUtilities
 
 #Required Modules
 ##py -m pip install
@@ -35,15 +38,33 @@ def build_cxFreeze(*args, **kwargs):
 def build_pynsist(*args, **kwargs):
 	return Exe_Pynsist(*args, **kwargs)
 
-class Exe_Base(object, metaclass = abc.ABCMeta):
-	def __init__(self, mainFile):
+def build_innoSetup(*args, **kwargs):
+	return Exe_InnoSetup(*args, **kwargs)
+
+class Utilities(object):
+	@classmethod
+	def ensure_filePath(cls, filePath, *, ending = None, raiseError = True, default = None):
+		if (filePath is None):
+			return default
+			
+		if ((ending is not None) and (not filePath.endswith(ending))):
+			filePath += ending
+
+		if (not os.path.exists(filePath)):
+			if (raiseError):
+				raise FileNotFoundError(filePath)
+			return default
+		return filePath
+
+class Exe_Base(Utilities, metaclass = abc.ABCMeta):
+	def __init__(self, mainFile, name = None, version = None, author = None, description = None):
 		"""Used to create a .exe file.
 		For good module structure practices, see: http://blog.habnab.it/blog/2013/07/21/python-packages-and-you/
 		Special thanks to Ned Deily for how to detect 32 bit vs 64 bit on https://stackoverflow.com/questions/6107905/which-command-to-use-for-checking-whether-python-is-64bit-or-32bit/12057504#12057504
 
 		mainFile (str) - The name of the main .py file
 
-		Example Input: Exe("runMe")
+		Example Input: Exe_Base("runMe")
 		"""
 		
 		self.options = {}
@@ -54,13 +75,12 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 		self.console = {}
 		self.console["script"] = ""
 
-		self.name = ''
-		self.version = ''
-		self.description = ''
-		self.author = ''
+		self.setInfoName(name)
+		self.setInfoAuthor(author)
+		self.setInfoVersion(version)
+		self.setInfoDescription(description)
 		self.data_files = []
 
-		self.noError = True
 		self.setMain(mainFile)
 
 	def optimizeSize(self, excludeInterpreter = False, safer = False):
@@ -117,7 +137,7 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 				raise
 		shutil.rmtree(filePath, ignore_errors = False, onerror = onerror)
 
-	@abc.abstractmethod
+	# @abc.abstractmethod
 	def setName(self, *args, **kwargs):
 		pass
 
@@ -129,27 +149,32 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 		Example Input: setMain("convertToExcel")
 		"""
 
-		if (os.path.exists(fileName + ".py")):
-			self.console["script"] = fileName + ".py"
-		else:
-			print("File does not exist.")
-			self.noError = False
+		if (not fileName.endswith(".py")):
+			fileName += ".py"
 
-	@abc.abstractmethod
+		if (not os.path.exists(fileName)):
+			raise FileNotFoundError(fileName)
+
+		self.console["script"] = fileName
+
+	# @abc.abstractmethod
 	def setIcon(self, *args, **kwargs):
 		pass
 
-	def setInfoName(self, name):
+	def setInfoName(self, name = None):
 		"""Sets the name for the .exe file's info
 
-		name (str) - The version number. Can be an int, float, or double.
+		name (str) - What the app is called
 
 		Example Input: setInfoName("start")
 		"""
 
-		self.name = name
+		if (name is None):
+			self.name = "MyApp"
+		else:
+			self.name = name
 
-	def setInfoVersion(self, version):
+	def setInfoVersion(self, version = None):
 		"""Sets the version number for the .exe file's info
 
 		version (str) - The version number. Can be an int, float, or double.
@@ -157,13 +182,12 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 		Example Input: setInfoVersion("1.0")
 		"""
 
-		#Ensure correct data type
-		if (type(version) != str):
-			version = str(version)
+		if (version is None):
+			self.version = "unknown"
+		else:
+			self.version = f"{version}"
 
-		self.version = version
-
-	def setInfoDescription(self, description):
+	def setInfoDescription(self, description = None):
 		"""Sets the icon for the .exe file's info
 
 		description (str) - What the program is meant to do
@@ -171,9 +195,12 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 		Example Input: setInfoDescription("Converts a .ias file to an excel sheet")
 		"""
 
-		self.description = description
+		if (description is None):
+			self.description = "unknown"
+		else:
+			self.description = f"{description}"
 
-	def setInfoAuthor(self, author):
+	def setInfoAuthor(self, author = None):
 		"""Sets the author for the .exe file's info
 
 		author (str) - Who created the program
@@ -181,7 +208,10 @@ class Exe_Base(object, metaclass = abc.ABCMeta):
 		Example Input: setInfoAuthor("Joshua Mayberry")
 		"""
 
-		self.author = author
+		if (author is None):
+			self.author = "unknown"
+		else:
+			self.author = f"{author}"
 
 	def addFile(self, myInput, outputFolder = "", buildName = None, module = False, keepFolders = True, insideZip = False, ignore = None):
 		"""Adds an extra file to the overall program bundle.
@@ -380,7 +410,7 @@ class Exe_Py2Exe(Exe_Base):
 
 		mainFile (str) - The name of the main .py file
 
-		Example Input: Exe("runMe")
+		Example Input: Exe_Py2Exe("runMe")
 		"""
 
 		import py2exe
@@ -471,20 +501,6 @@ class Exe_Py2Exe(Exe_Base):
 		"""
 
 		self.console["dest_base"] = fileName
-
-	def setMain(self, fileName):
-		"""Sets the file path to the main .py file.
-
-		fileName (str) - The name for the main .py file
-
-		Example Input: setMain("convertToExcel")
-		"""
-
-		if (os.path.exists(fileName + ".py")):
-			self.console["script"] = fileName + ".py"
-		else:
-			print("File does not exist.")
-			self.noError = False
 
 	def setIcon(self, fileName):
 		"""Sets the icon for the .exe file
@@ -595,9 +611,6 @@ class Exe_Py2Exe(Exe_Base):
 
 		print("Creating .exe file...")
 
-		if (not self.noError):
-			print ("An error has occured\n.exe creation abotred")
-			
 		if (include_cmd):
 			setup(name = self.name,
 				version = self.version,
@@ -625,7 +638,7 @@ class Exe_CxFreeze(Exe_Base):
 
 		mainFile (str) - The name of the main .py file
 
-		Example Input: Exe("runMe")
+		Example Input: Exe_CxFreeze("runMe")
 		"""
 
 		import cx_Freeze
@@ -761,10 +774,6 @@ class Exe_CxFreeze(Exe_Base):
 
 		print("Creating .exe file...")
 
-		if (not self.noError):
-			print ("An error has occured\n.exe creation abotred")
-			return
-
 		sys.argv.append('build')
 
 		if (include_cmd):
@@ -804,7 +813,7 @@ class Exe_Pynsist(Exe_Base):
 
 		mainFile (str) - The name of the main .py file
 
-		Example Input: Exe("runMe")
+		Example Input: Exe_Pynsist("runMe")
 		"""
 
 		import site
@@ -829,14 +838,8 @@ class Exe_Pynsist(Exe_Base):
 	def setName(self, name = None):
 		self.console["installerName"] = name or "myInstaller"
 
-	def optimizeSize(self, excludeInterpreter = False, safer = False):
-		"""Makes the overall program smaller.
-
-		excludeInterpreter (bool) - If True: The Python interpreter will not be bundled
-		safer (bool) - There are some things that some computers don't have. Enable this to include those redundancies
-
-		Example Input: optimizeSize()
-		"""
+	def optimizeSize(self, *args, **kwargs):
+		"""Does not use"""
 
 		return
 
@@ -930,10 +933,6 @@ class Exe_Pynsist(Exe_Base):
 
 		print("Creating .exe installer...")
 
-		if (not self.noError):
-			print ("An error has occured\n.exe creation abotred")
-			return
-
 		#Find all needed packages
 		finder = modulefinder.ModuleFinder()
 		finder.run_script(self.console["script"])
@@ -998,61 +997,328 @@ class Exe_Pynsist(Exe_Base):
 
 		builder.run()
 
-	def _example(self):
-		"""Example Use:
-			exe = Exe_Pynsist("runMe")
-			exe._example()
+class Exe_InnoSetup(Exe_Base):
+	"""Install Inno Setup at: http://www.jrsoftware.org/isdl.php"""
+
+	def __init__(self, *args, icon = None, setupFile = None, sourceFile = None, 
+		icon_desktop_state = False, icon_desktop_name = None, startMenu_Folder = None, 
+		pythonPath = None, script = None,  
+		defaultDir = None, innoSetup_installDir = None, icon_installer = None, **kwargs):
+		"""Helps create an inno setup installer.
+
+		innoSetup_installDir (str) - Where Inno Setup was installed to
+
+		Exe_InnoSetup("runMe")
 		"""
 
-		#Add settings
-		self.optimizeSize()
+		super().__init__(script, *args, **kwargs)
+
+		self.icon = icon
+		self.setupFile = setupFile
+		self.sourceFile = sourceFile
+		self.defaultDir = defaultDir
+		self.icon_installer = icon_installer
+		self.icon_desktop_name = icon_desktop_name
+		self.icon_desktop_state = icon_desktop_state
+		self.innoSetup_installDir = innoSetup_installDir
+
+		self.startMenu_Folder = startMenu_Folder
+		self.pythonPath = pythonPath
+		self.script = script
+
+	@makeProperty
+	def icon_installer():
+		"""What icon the installer has."""
 		
-		import __version__
-		self.setName("start")
-		self.setDestination(f"C:/Users/jmayberry/Desktop/materialTrackerProgram_{__version__.version}")
-		self.setIcon("resources/startIcon")
-		self.setInfoName(f"materialTracker")
-		self.setInfoVersion(__version__.version)
-		self.setInfoDescription("Manages Inventory")
-		self.setInfoAuthor("Joshua Mayberry")
+		def getter(self):
+			return self._icon_installer
 
-		#Add program files
-		self.addInclude(["GUI_Maker", "API_Database", "API_Excel", "API_Com", "Utilities"])
-		self.addFile("controller.py", "pkgs")
-		self.addFile("../modules/forks", "pkgs")
-		self.addFile("__version__.py", "pkgs")
+		def setter(self, value):
+			self._icon_installer = self.ensure_filePath(value, ending = ".ico", default = None)
 
-		self.addFile("resources", "")
-		self.addFile("_CHANGELOG.md", "")
-		self.addFile("__version__.py", "")
-		# self.addExclude(["pubsub"])
+		def deleter(self):
+			del self._icon_installer
 
-		#Add required installers
-		self.addInstaller("docs/Datalogic_USBCOMInstaller.msi", message = "", installType = 0, condition = {"not_inRegistry": ("HKLM", "DRIVERS\DriverDatabase\DriverInfFiles\oem187.inf", "Active", "")})
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	icon_installer = property(**icon_installer(), doc = icon_installer.__doc__)
 
-		#Setup docs
-		self.addFile("docs", "")
-		self.addFile("runMe.py", "docs/code")
-		self.addFile("setup.py", "docs/code")
-		self.addFile("__init__.py", "docs/code")
-		self.addFile("_CHANGELOG.md", "docs/code")
-		self.addFile("controller.py", "docs/code")
-		self.addFile("__version__.py", "docs/code")
-		self.addFile("test_Material_Tracker.py", "docs/code")
-
-		self.addFile("../modules/API_COM/controller.py", "docs/code/modules/API_COM", buildName = "API_COM_controller.py")
-		self.addFile("../modules/API_Database/controller.py", "docs/code/modules/API_Database", buildName = "API_Database_controller.py")
+	def icon():
+		"""What icon the generated .exe file has."""
 		
-		self.addFile("../modules/GUI_Maker/controller.py", "docs/code/modules/GUI_Maker", buildName = "GUI_Maker_controller.py")
-		self.addFile("../modules/GUI_Maker/Splash.py", "docs/code/modules/GUI_Maker", buildName = "GUI_Maker_Splash.py")
-		self.addFile("../modules/GUI_Maker/test_GUI_Maker.py", "docs/code/modules/GUI_Maker", buildName = "GUI_Maker_test_GUI_Maker.py")
-		self.addFile("../modules/GUI_Maker/docs", "docs/code/modules/GUI_Maker")
-		self.addFile("../modules/GUI_Maker/examples", "docs/code/modules/GUI_Maker")
+		def getter(self):
+			return self._icon
 
-		#Finalize .self
-		self.create(include_cmd = True)
-		# self.create()
+		def setter(self, value):
+			self._icon = self.ensure_filePath(value, ending = ".ico", default = None)
 
-if __name__ == '__main__':
-	exe = Exe_Pynsist("runMe")
-	exe._example()
+		def deleter(self):
+			del self._icon
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	icon = property(**icon(), doc = icon.__doc__)
+
+	def icon_desktop_state():
+		"""Determines if an icon can be placed on the desktop.
+			- If None: Do not give the option
+			- If True: Check the box by default
+			- If False: Do not check the box by default
+		"""
+		
+		def getter(self):
+			return self._icon_desktop_state
+
+		def setter(self, value):
+			if (value is None):
+				self._icon_desktop_state = None
+			elif (value):
+				self._icon_desktop_state = "checked"
+			else:
+				self._icon_desktop_state = "unchecked"
+
+		def deleter(self):
+			del self._icon_desktop_state
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	icon_desktop_state = property(**icon_desktop_state(), doc = icon_desktop_state.__doc__)
+
+	def icon_desktop_name():
+		"""What the icon on the desktop should say.
+			- If None: Will use the app's name
+		"""
+		
+		def getter(self):
+			return self._icon_desktop_name
+
+		def setter(self, value):
+			self._icon_desktop_name = value or None
+
+		def deleter(self):
+			del self._icon_desktop_name
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	icon_desktop_name = property(**icon_desktop_name(), doc = icon_desktop_name.__doc__)
+
+	def icon_desktop_name():
+		"""What the icon on the desktop should say.
+			- If None: Will use the app's name
+		"""
+		
+		def getter(self):
+			return self._icon_desktop_name
+
+		def setter(self, value):
+			self._icon_desktop_name = value or None
+
+		def deleter(self):
+			del self._icon_desktop_name
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	icon_desktop_name = property(**icon_desktop_name(), doc = icon_desktop_name.__doc__)
+
+	def innoSetup_installDir():
+		"""Where Inno Setup is installed."""
+		
+		def getter(self):
+			return self._innoSetup_installDir
+
+		def setter(self, value):
+			self._innoSetup_installDir = value or "C:/Program Files (x86)/Inno Setup 5"
+
+		def deleter(self):
+			del self._innoSetup_installDir
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	innoSetup_installDir = property(**innoSetup_installDir(), doc = innoSetup_installDir.__doc__)
+
+	def setupFile():
+		"""Where the setup file is located"""
+		
+		def getter(self):
+			return self._setupFile
+
+		def setter(self, value):
+			self._setupFile = self.ensure_filePath(value, ending = ".iss", default = "H:/Python/modules/API_Exe/default_setup.iss")
+
+		def deleter(self):
+			del self._setupFile
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	setupFile = property(**setupFile(), doc = setupFile.__doc__)
+
+	def defaultDir():
+		"""Changes the default install directory for the installer."""
+		
+		def getter(self):
+			return self._defaultDir
+
+		def setter(self, value):
+			self._defaultDir = value or None
+
+		def deleter(self):
+			del self._defaultDir
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	defaultDir = property(**defaultDir(), doc = defaultDir.__doc__)
+
+	def sourceFile():
+		"""Where the source folder is located."""
+		
+		def getter(self):
+			return self._sourceFile
+
+		def setter(self, value):
+			self._sourceFile = value or None
+
+		def deleter(self):
+			del self._sourceFile
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	sourceFile = property(**sourceFile(), doc = sourceFile.__doc__)
+
+	def startMenu_Folder():
+		"""What folder in the start menu to place the start icon."""
+		
+		def getter(self):
+			return self._startMenu_Folder
+
+		def setter(self, value):
+			self._startMenu_Folder = value or "MyApplication"
+
+		def deleter(self):
+			del self._startMenu_Folder
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	startMenu_Folder = property(**startMenu_Folder(), doc = startMenu_Folder.__doc__)
+
+	def pythonPath():
+		"""Where pythonw.exe is installed at."""
+		
+		def getter(self):
+			return self._pythonPath
+
+		def setter(self, value):
+			self._pythonPath = self.ensure_filePath(value, ending = "pythonw.exe", default = "//dmte3/MaterialDB/Python36/pythonw.exe")
+
+		def deleter(self):
+			del self._pythonPath
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	pythonPath = property(**pythonPath(), doc = pythonPath.__doc__)
+
+	def script():
+		"""Where the script is located."""
+		
+		def getter(self):
+			return self._script
+
+		def setter(self, value):
+			self._script = self.ensure_filePath(value, ending = ".py")
+
+		def deleter(self):
+			del self._script
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	script = property(**script(), doc = script.__doc__)
+
+	def canCancel():
+		"""Determines if the user can cancel the install or not."""
+		
+		def getter(self):
+			return self._canCancel
+
+		def setter(self, value):
+			if ((value is None) or value):
+				self._canCancel = "yes"
+			else:
+				self._canCancel = "no"
+
+		def deleter(self):
+			del self._canCancel
+
+		return {"fget": getter, "fset": setter, "fdel": deleter}
+	canCancel = property(**canCancel(), doc = canCancel.__doc__)
+
+	def create(self, outputDir = None, *, quiet = False, logging = True, issFile = None, **innoVars):
+		"""Passes the inno setup file to the compiler.
+			How to pass preProcessor commands in a cmd: 
+				Inno Setup -> Help -> Inno Setup Preprocessor -> Other Information -> Extend Command Line Compiler
+
+			outputDir (str) - Where to save the install file
+
+			quiet (bool) - Determines if messages are printed to the cmd window
+				- If None: All messages will be shown
+				- If True: Only error messages will be shown
+				- If False: Both progress and error messages will be shown
+
+			innoVars (any) - Extra values that will be passed to the .iss file
+
+		Example Input: create()
+		"""
+
+		def yieldSwitches():
+			nonlocal outputDir, quiet, logging, innoVars
+
+			if (outputDir is not None):
+				yield f"/O{outputDir}"
+
+			# if (quiet is not None):
+			# 	if (quiet):
+			# 		yield "/Q"
+			# 	else:
+			# 		yield "/Qp"
+
+			# yield f"/logging={('no', 'yes')[logging]}"
+
+			for variable, value in innoVars.items():
+				yield f"/D{variable}={value}"
+
+		####################################
+
+		innoVars.setdefault("uuid", uuid.uuid4())
+		innoVars.setdefault("appName", self.name)
+		innoVars.setdefault("appVersion", self.version)
+		innoVars.setdefault("sourceFile", self.sourceFile)
+		innoVars.setdefault("icon_installer", self.icon_installer)
+		innoVars.setdefault("defaultDir", self.defaultDir or innoVars["appName"])
+
+		innoVars.setdefault("script", self.script)
+		innoVars.setdefault("pythonPath", self.pythonPath)
+		innoVars.setdefault("icon", self.icon)
+		innoVars.setdefault("startMenu_Folder", self.startMenu_Folder)
+
+		innoVars.setdefault("icon_desktop_state", self.icon_desktop_state)
+		innoVars.setdefault("icon_desktop_name", self.icon_desktop_name)
+
+		if (innoVars["sourceFile"] is None):
+			del innoVars["sourceFile"]
+
+		if (innoVars["icon_desktop_state"] is None):
+			del innoVars["icon_desktop_state"]
+			
+		if (innoVars["icon_desktop_name"] is None):
+			del innoVars["icon_desktop_name"]
+
+		# precompileVars = {}
+		# precompileVars["icon_installer"] = innoVars.pop("icon_installer")
+
+		import subprocess
+		args = [
+			os.path.join(self.innoSetup_installDir, "iscc.exe"), 
+			*yieldSwitches(), 
+			issFile or self.setupFile,
+		]
+		print(args)
+		subprocess.call(args)
+
+if (__name__ == "__main__"):
+	exe = build_innoSetup(script = "H:/Python/Material_Tracker/runMe.py")
+
+	exe.name = "Material Tracker"
+	exe.author = "Joshua Mayberry"
+	exe.icon_installer = "H:/Python/Material_Tracker/resources/startIcon.ico"
+
+	exe.create()
+
+
+	#['C:/Program Files (x86)/Inno Setup 5\\iscc.exe', '/DinstallerIcon=H:/Python/Material_Tracker/resources/startIcon.ico', 'default_setup.iss']
+	#['C:/Program Files (x86)/Inno Setup 5\\iscc.exe', '/DinstallerIcon=H:/Python/Material_Tracker/resources/startIcon.ico', 'H:/Python/Material_Tracker/installer.iss']
