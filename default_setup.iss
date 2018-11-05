@@ -10,27 +10,18 @@
 #ifndef defaultDir
 	#define defaultDir appName
 #endif
-#ifndef startMenu_subFolder
-	#define startMenu_subFolder "{group}"
-#endif
-
-#ifndef icon_startMenu
-	#define icon_startMenu
-#endif
-#ifndef icon_desktop_name
-	#define icon_desktop_name appName
-#endif
 
 #ifndef canCancel
 	#define canCancel "yes"
 #endif
-
 
 [Setup]
 AppId = {#uuid}
 AppName = {#appName}
 AppVersion = {#appVersion}
 DefaultDirName = {pf}\{#defaultDir}
+DefaultGroupName = {#startMenuDir}
+SetupIconFile = {#icon_installer}
 
 #ifdef canCancel
 	AllowCancelDuringInstall = {#canCancel}
@@ -38,13 +29,10 @@ DefaultDirName = {pf}\{#defaultDir}
 #ifdef canRestart
 	RestartIfNeededByRun = {#canRestart}
 #endif
-#ifdef forceLogging
-	SetupLogging = {#forceLogging}
-#endif
+;#ifdef forceLogging
+;	SetupLogging = {#forceLogging}
+;#endif
 
-#ifdef startMenuDir
-	DefaultGroupName = {#startMenuDir}
-#endif
 #ifdef outputDir
 	OutputDir = {#outputDir}
 #endif
@@ -108,20 +96,49 @@ DefaultDirName = {pf}\{#defaultDir}
 	OnlyBelowVersion = {#windows_maxVersion}
 #endif
 
-#ifdef icon_installer
-	SetupIconFile = {#icon_installer}
-#endif
+[Types]
+Name: "full"; Description: "Full installation"
+Name: "compact"; Description: "Compact installation"
+Name: "custom"; Description: "Custom installation"; Flags: iscustom
 
-[Files]
-#ifdef sourceFile
-	Source: {#sourceFile}; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
-#endif
-
-[Icons]
-Name: "{#startMenu_subFolder}" ; Filename: "{#pythonPath}"; WorkingDir: "{app}"; Parameters: "{#script}"; IconFilename: "{#icon}"
+[Components]
+Name: "main"; Description: "Main Files"; Types: full compact custom; Flags: fixed
 
 [Tasks]
-#ifdef icon_desktop_state
-	Name: {#icon_desktop_name}; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: {#icon_desktop_state}
+Name: desktopicon; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
+Name: desktopicon\common; Description: "For all users"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive
+Name: desktopicon\user; Description: "For the current user only"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive unchecked
+; Name: quicklaunchicon; Description: {cm:CreateQuickLaunchIcon}; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: unchecked
+; Name: associate; Description: {cm:AssocFileExtension}; GroupDescription: "Other tasks:"; Flags: unchecked
+Name: startmenu; Description: "Create Start Menu icon"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
+
+[Files]
+Source: {#icon}; DestDir: "{app}"; Components: main
+
+#ifdef shortcutDesktop_script
+	[Files]
+	Source: {#shortcutDesktop_icon_source}; DestDir: "{app}"; Components: main; Tasks: desktopicon
+	Source: {#shortcutDesktop_source}; DestDir: {#shortcutDesktop_destination}; Components: main; Tasks: desktopicon
+
+	[Icons]
+	#if shortcutDesktop_isPython
+		Name: "{userdesktop}\{#shortcutDesktop_name}"; Filename: "{#pythonPath}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: " ""{#shortcutDesktop_script}"" {#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: desktopicon\user
+		Name: "{commondesktop}\{#shortcutDesktop_name}"; Filename: "{#pythonPath}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: " ""{#shortcutDesktop_script}"" {#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: desktopicon\common
+	#else
+		Name: "{userdesktop}\{#shortcutDesktop_name}"; Filename:  "{#shortcutDesktop_script}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: "{#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: desktopicon\user
+		Name: "{commondesktop}\{#shortcutDesktop_name}"; Filename:  "{#shortcutDesktop_script}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: "{#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: desktopicon\common
+	#endif
 #endif
 
+#ifdef shortcutStartMenu_script
+	[Files]
+	Source: {#shortcutStartMenu_icon_source}; DestDir: "{app}"; Components: main; Tasks: startmenu
+	Source: {#shortcutStartMenu_source}; DestDir: {#shortcutStartMenu_destination}; Components: main; Tasks: startmenu
+
+	[Icons]
+	#if shortcutStartMenu_isPython
+		Name: "{group}\{#shortcutStartMenu_name}"; Filename: "{#pythonPath}"; WorkingDir: "{#shortcutStartMenu_workingDir}"; Parameters: " ""{#shortcutStartMenu_script}"" {#shortcutStartMenu_params} "; IconFilename: "{#shortcutStartMenu_icon}"; Tasks: startmenu
+	#else
+		Name: "{group}\{#shortcutDesktop_name}"; Filename:  "{#shortcutDesktop_script}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: "{#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: startmenu
+	#endif
+#endif

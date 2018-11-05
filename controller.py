@@ -3,6 +3,7 @@
 import os
 import sys
 import shutil
+import collections
 
 import re
 import abc
@@ -41,7 +42,7 @@ def build_pynsist(*args, **kwargs):
 def build_innoSetup(*args, **kwargs):
 	return Exe_InnoSetup(*args, **kwargs)
 
-class Utilities(object):
+class Utilities(MyUtilities.common.Ensure):
 	@classmethod
 	def ensure_filePath(cls, filePath, *, ending = None, raiseError = True, default = None):
 		if (filePath is None):
@@ -1008,8 +1009,14 @@ class Exe_InnoSetup(Utilities):
 		Exe_InnoSetup("runMe")
 		"""
 
+		self.shortcutCatalogue = {}
+
 		for variable, value in kwargs.items():
 			setattr(self, variable, value)
+
+	@classmethod
+	def withoutSpaces(cls, value):
+		return re.sub("\s", "_", value)
 
 	#App Information Properties
 	@MyUtilities.common.lazyProperty()
@@ -1077,23 +1084,13 @@ class Exe_InnoSetup(Utilities):
 	def defaultDir(self, value):
 		"""Changes the default install directory for the installer."""
 		
-		return value or self.name
+		return self.withoutSpaces(value or self.name)
 
 	@MyUtilities.common.lazyProperty()
 	def startMenuDir(self, value):
 		"""Changes the default start menu folder for the created .exe."""
 		
-		return value or self.name
-
-	@MyUtilities.common.lazyProperty()
-	def startMenu_subFolder(self, value, *, default = None):
-		"""What folder in the start menu folder to place the start icon in."""
-		
-		if (value is None):
-			value = default
-		if (value is None):
-			return "{group}"
-		return f"{{group}}\{value}"
+		return self.withoutSpaces(value or self.name)
 
 	@MyUtilities.common.lazyProperty()
 	def canCancel(self, value, *, default = True):
@@ -1119,6 +1116,8 @@ class Exe_InnoSetup(Utilities):
 	def skip_startupMessage(self, value, *, default = True):
 		"""Determines if a message asking if the user wants to install this before running the installer."""
 		
+		if (value is None):
+			return None
 		if (value):
 			return 1
 		return 0
@@ -1127,6 +1126,8 @@ class Exe_InnoSetup(Utilities):
 	def skip_welcomePage(self, value, *, default = True):
 		"""Determines if the installer's welcome page should be shown or not."""
 		
+		if (value is None):
+			return None
 		if (value):
 			return 1
 		return 0
@@ -1269,22 +1270,16 @@ class Exe_InnoSetup(Utilities):
 		return self.ensure_filePath(value, ending = ".iss", default = default)
 
 	@MyUtilities.common.lazyProperty()
-	def sourceFile(self, value, *, default = None):
-		"""Where the source folder is located."""
-		
-		return value or default
-
-	@MyUtilities.common.lazyProperty()
-	def pythonPath(self, value, *, default = "//dmte3/MaterialDB/Python36/pythonw.exe"):
+	def pythonPath(self, value, *, default = "\\\\dmte3\\MaterialDB\\Python36\\"):
 		"""Where pythonw.exe is installed at."""
 		
-		return self.ensure_filePath(value, ending = "pythonw.exe", default = default)
+		return self.ensure_filePath(value, ending = "python.exe", default = default)
 
 	@MyUtilities.common.lazyProperty()
 	def script(self, value, *, default = None):
 		"""Where the script is located."""
 		
-		return self.ensure_filePath(value, ending = ".py", default = default)
+		return value# self.ensure_filePath(value, ending = ".py", default = default)
 
 	@MyUtilities.common.lazyProperty()
 	def dirExistsWarning(self, value, *, default = False):
@@ -1302,10 +1297,10 @@ class Exe_InnoSetup(Utilities):
 
 	#Icon Properties
 	@MyUtilities.common.lazyProperty()
-	def icon_installer(self, value, *, default = None):
+	def icon_installer(self, value):
 		"""What icon the installer has."""
 		
-		return self.ensure_filePath(value, ending = ".ico", default = default)
+		return self.ensure_filePath(value, ending = ".ico", default = self.icon)
 
 	@MyUtilities.common.lazyProperty()
 	def icon(self, value, *, default = None):
@@ -1314,37 +1309,31 @@ class Exe_InnoSetup(Utilities):
 		return self.ensure_filePath(value, ending = ".ico", default = default)
 
 	@MyUtilities.common.lazyProperty()
-	def icon_desktop_state(self, value, *, default = None):
+	def icon_desktop_state(self, value, *, default = True):
 		"""Determines if an icon can be placed on the desktop.
 			- If None: Do not give the option
 			- If True: Check the box by default
 			- If False: Do not check the box by default
+
+		See: Tasks -> Flags
 		"""
 
 		if (value is None):
 			value = default
 
 		if (value is None):
-			return None
+			return "unchecked" #For now...
 		if (value):
-			return "checked"
+			return "exclusive"
 		return "unchecked"
 
 	@MyUtilities.common.lazyProperty()
-	def icon_desktop_name(self, value, *, default = None):
+	def icon_desktop_name(self, value):
 		"""What the icon on the desktop should say.
 			- If None: Will use the app's name
 		"""
 	
-		return value or default
-
-	@MyUtilities.common.lazyProperty()
-	def icon_desktop_name(self, value, *, default = None):
-		"""What the icon on the desktop should say.
-			- If None: Will use the app's name
-		"""
-
-		return value or default
+		return self.withoutSpaces(value or self.name)
 
 	#Functions
 	def optimize(self):
@@ -1438,6 +1427,57 @@ class Exe_InnoSetup(Utilities):
 
 		raise NotImplementedError()
 
+	def yieldShortcut(self, source, name = None, icon = None, 
+		destination = None, workingDir = None, params = None):
+		"""Yields variables pertaining to the shortcut.
+
+		source (str) - What file the icon will run
+
+		name (str) - What the shortcut will say
+			- If None: Will use the app name
+
+		icon (str) - Where the icon file is located
+			- If None: Uses the installer's icon file
+
+		destination (str) - What subfolder 'source' will be located in after the install
+			- If None: 'source' will be in the root directory
+
+		workingDir (str) - Which directory to run the file in
+			- If None: Uses the directory the shortcut is in
+
+		params (tuple) - A list of cmd line params to run the file with
+			- If None: No params will be given
+		"""
+
+		yield "source", source
+		yield "name", name or self.name
+
+		_icon = icon or self.icon
+		yield "icon_source", _icon
+		yield "icon", f"{{app}}\\{os.path.basename(_icon)}"
+		
+		yield "workingDir", workingDir or "{app}"
+
+		if (destination is None):
+			_destination = "{app}"
+		else:
+			_destination = f"{{app}}\\{destination}"
+		yield "destination", _destination
+
+		yield "isPython", source.endswith(".py")
+		yield "script", os.path.join(_destination, os.path.basename(source))
+		yield "params", ' '.join(re.sub('"', '""', item) for item in self.ensure_container(params))
+
+	def setDesktop(self, *args, **kwargs):
+		"""Adds a shortcut to the desktop."""
+
+		self.shortcutCatalogue["shortcutDesktop"] = lambda: self.yieldShortcut(*args, **kwargs)
+
+	def setStartMenu(self, *args, **kwargs):
+		"""Adds a shortcut to the start menu."""
+
+		self.shortcutCatalogue["shortcutStartMenu"] = lambda: self.yieldShortcut(*args, **kwargs)
+
 	def create(self, outputDir = None, *, quiet = None, issFile = None, **innoVars):
 		"""Passes the inno setup file to the compiler.
 			How to pass preProcessor commands in a cmd: 
@@ -1469,30 +1509,18 @@ class Exe_InnoSetup(Utilities):
 
 
 			for variable, value in innoVars.items():
+				if (value is None):
+					continue
 				yield f"/D{variable}={value}"
+
+			for label, shortcut in self.shortcutCatalogue.items():
+				for variable, value in shortcut():
+					yield f"/D{label}_{variable}={value}"
 
 		####################################
 
-		innoVars.setdefault("uuid", self.uuid)
-		innoVars.setdefault("appName", self.name)
-		innoVars.setdefault("appVersion", self.version)
-
-		innoVars.setdefault("sourceFile", self.sourceFile)
-		innoVars.setdefault("defaultDir", self.defaultDir)
-		innoVars.setdefault("startMenuDir", self.startMenuDir)
-		innoVars.setdefault("startMenu_subFolder", self.startMenu_subFolder)
-
-		innoVars.setdefault("script", self.script)
-		innoVars.setdefault("pythonPath", self.pythonPath)
-
-		innoVars.setdefault("icon", self.icon)
-		innoVars.setdefault("icon_installer", self.icon_installer)
-		innoVars.setdefault("icon_desktop_state", self.icon_desktop_state)
-		innoVars.setdefault("icon_desktop_name", self.icon_desktop_name)
-
-		for variable in ("sourceFile", "icon_desktop_state", "icon_desktop_name", "icon_installer"):
-			if (innoVars[variable] is None):
-				del innoVars[variable]
+		for variable in _lazyProperties_all[self.__class__.__name__]:
+			innoVars.setdefault(variable, getattr(self, variable))
 
 		import subprocess
 		args = [
@@ -1500,19 +1528,24 @@ class Exe_InnoSetup(Utilities):
 			*yieldSwitches(), 
 			issFile or self.setupFile,
 		]
-		print(args)
+		
+		print(".iss Arguments:")
+		for item in args:
+			print(f"\t{item}")
+
 		subprocess.call(args)
 
 if (__name__ == "__main__"):
-	exe = build_innoSetup(script = "H:/Python/Material_Tracker/runMe.py")
+	directory = "H:/Python/Material_Tracker"
 
-	exe.name = "Material Tracker"
+	exe = build_innoSetup()
+
+	exe.name = "Material_Tracker"
 	exe.publisher = "Decatur Mold"
+	exe.icon = f"{directory}/resources/startIcon.ico"
 	exe.publisherWebsite = "https://www.decaturmold.com/"
-	exe.icon_installer = "H:/Python/Material_Tracker/resources/startIcon.ico"
 
-	exe.create()
+	exe.setDesktop(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
+	exe.setStartMenu(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
 
-
-	#['C:/Program Files (x86)/Inno Setup 5\\iscc.exe', '/DinstallerIcon=H:/Python/Material_Tracker/resources/startIcon.ico', 'default_setup.iss']
-	#['C:/Program Files (x86)/Inno Setup 5\\iscc.exe', '/DinstallerIcon=H:/Python/Material_Tracker/resources/startIcon.ico', 'H:/Python/Material_Tracker/installer.iss']
+	exe.create(outputDir = "\\\\dmte3\\MaterialDB\\Versions\\v3_1_0")
