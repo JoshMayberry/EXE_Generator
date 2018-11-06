@@ -104,18 +104,16 @@ Name: "custom"; Description: "Custom installation"; Flags: iscustom
 [Components]
 Name: "main"; Description: "Main Files"; Types: full compact custom; Flags: fixed
 
-[Tasks]
-Name: desktopicon; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
-Name: desktopicon\common; Description: "For all users"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive
-Name: desktopicon\user; Description: "For the current user only"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive unchecked
-; Name: quicklaunchicon; Description: {cm:CreateQuickLaunchIcon}; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: unchecked
-; Name: associate; Description: {cm:AssocFileExtension}; GroupDescription: "Other tasks:"; Flags: unchecked
-Name: startmenu; Description: "Create Start Menu icon"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
-
 [Files]
 Source: {#icon}; DestDir: "{app}"; Components: main
 
 #ifdef shortcutDesktop_script
+	[Tasks]
+	Name: desktopicon; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
+	Name: desktopicon\common; Description: "For all users"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive
+	Name: desktopicon\user; Description: "For the current user only"; GroupDescription: "{cm:AdditionalIcons}:"; Components: main; Flags: exclusive unchecked
+
+
 	[Files]
 	Source: {#shortcutDesktop_icon_source}; DestDir: "{app}"; Components: main; Tasks: desktopicon
 	Source: {#shortcutDesktop_source}; DestDir: {#shortcutDesktop_destination}; Components: main; Tasks: desktopicon
@@ -131,6 +129,10 @@ Source: {#icon}; DestDir: "{app}"; Components: main
 #endif
 
 #ifdef shortcutStartMenu_script
+	[Tasks]
+	Name: startmenu; Description: "Create Start Menu icon"; GroupDescription: "{cm:AdditionalIcons}"; Components: main
+	Name: quicklaunchicon; Description: {cm:CreateQuickLaunchIcon}; GroupDescription: "{cm:AdditionalIcons}"; Components: main; Flags: unchecked
+
 	[Files]
 	Source: {#shortcutStartMenu_icon_source}; DestDir: "{app}"; Components: main; Tasks: startmenu
 	Source: {#shortcutStartMenu_source}; DestDir: {#shortcutStartMenu_destination}; Components: main; Tasks: startmenu
@@ -138,7 +140,9 @@ Source: {#icon}; DestDir: "{app}"; Components: main
 	[Icons]
 	#if shortcutStartMenu_isPython
 		Name: "{group}\{#shortcutStartMenu_name}"; Filename: "{#pythonPath}"; WorkingDir: "{#shortcutStartMenu_workingDir}"; Parameters: " ""{#shortcutStartMenu_script}"" {#shortcutStartMenu_params} "; IconFilename: "{#shortcutStartMenu_icon}"; Tasks: startmenu
+		Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\My Program\User Pinned\TaskBar"; Filename: "{#pythonPath}"; WorkingDir: "{#shortcutStartMenu_workingDir}"; Parameters: " ""{#shortcutStartMenu_script}"" {#shortcutStartMenu_params} "; IconFilename: "{#shortcutStartMenu_icon}"; Tasks: quicklaunchicon
 	#else
 		Name: "{group}\{#shortcutDesktop_name}"; Filename:  "{#shortcutDesktop_script}"; WorkingDir: "{#shortcutDesktop_workingDir}"; Parameters: "{#shortcutDesktop_params} "; IconFilename: "{#shortcutDesktop_icon}"; Tasks: startmenu
+		Name: "{userappdata}\Microsoft\Internet Explorer\Quick Launch\My Program\User Pinned\TaskBar"; Filename:  "{#shortcutStartMenu_script}"; WorkingDir: "{#shortcutStartMenu_workingDir}"; Parameters: "{#shortcutStartMenu_params} "; IconFilename: "{#shortcutStartMenu_icon}"; Tasks: quicklaunchicon
 	#endif
 #endif

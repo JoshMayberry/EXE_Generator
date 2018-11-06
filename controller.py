@@ -9,6 +9,7 @@ import re
 import abc
 import uuid
 import inspect
+import importlib
 
 import Utilities as MyUtilities
 
@@ -1535,12 +1536,67 @@ class Exe_InnoSetup(Utilities):
 
 		subprocess.call(args)
 
+def copyFile(source, destination):
+	os.makedirs(destination, exist_ok = True)
+	
+	if (not os.path.isdir(source)):
+		print("@1", source, destination)
+		shutil.copy2(source, destination)
+		return
+
+	print("@2", source, destination, os.path.basename(source))
+	for item in os.listdir(source):
+		if (item in ("__pycache__", ".git")):
+			continue
+		copyFile(os.path.join(source, item), os.path.join(destination, os.path.basename(source)))
+
 if (__name__ == "__main__"):
 	directory = "H:/Python/Material_Tracker"
+	sys.path.append(os.path.dirname(directory))
 
+	import Material_Tracker.__version__
+	version = f"v{Material_Tracker.__version__.major}_{Material_Tracker.__version__.minor}_{Material_Tracker.__version__.micro}{Material_Tracker.__version__.suffix}"
+	versionPath = os.path.join("\\\\dmte3\\MaterialDB\\Versions", version)
+	if (not os.path.exists(versionPath)):
+		print("Copying version files...")
+		os.makedirs(versionPath, exist_ok = True)
+
+		source = "H:/Python/Material_Tracker/"
+		for fileName in ("__version__.py", "_CHANGELOG.md", "controller.py", "runMe.py", "resources"):
+			copyFile(os.path.join(source, fileName), versionPath)
+		for fileName in ("Datalogic_USBCOMInstaller.msi",):
+			copyFile(os.path.join(source, "docs", fileName), os.path.join(versionPath, "docs"))
+
+		for fileName in ("__init__.py", "controller.py", "splash.py", "version.py", "LICENSE_forSections.py", "test_GUI_Maker.py"):
+			copyFile(os.path.join("H:/Python/modules/GUI_Maker", fileName), os.path.join(versionPath, "GUI_Maker"))
+
+		for fileName in ("__init__.py", "common.py", "debugging.py", "wxPython.py", "LICENSE_forSections.py"):
+			copyFile(os.path.join("H:/Python/modules/Utilities", fileName), os.path.join(versionPath, "Utilities"))
+
+		for fileName in ("__init__.py", "controller.py"):
+			copyFile(os.path.join("H:/Python/modules/API_Com", fileName), os.path.join(versionPath, "API_Com"))
+
+		for fileName in ("__init__.py", "controller.py"):
+			copyFile(os.path.join("H:/Python/modules/API_Security", fileName), os.path.join(versionPath, "API_Security"))
+
+		for fileName in ("__init__.py", "controller.py", "version.py"):
+			copyFile(os.path.join("H:/Python/modules/API_Excel", fileName), os.path.join(versionPath, "API_Excel"))
+
+		for fileName in ("__init__.py", "controller.py", "version.py"):
+			copyFile(os.path.join("H:/Python/modules/API_Database", fileName), os.path.join(versionPath, "API_Database"))
+		copyFile("H:/Python/modules/API_Database/alembic_templates", os.path.join(versionPath, "API_Database/alembic_templates"))
+
+		copyFile("H:/Python/modules/forks/__init__.py", os.path.join(versionPath, "forks"))
+		copyFile("H:/Python/modules/forks/objectlistview/__init__.py", os.path.join(versionPath, "forks/objectlistview"))
+		copyFile("H:/Python/modules/forks/objectlistview/ObjectListView", os.path.join(versionPath, "forks/objectlistview"))
+		copyFile("H:/Python/modules/forks/pypubsub/__init__.py", os.path.join(versionPath, "forks/pypubsub"))
+		copyFile("H:/Python/modules/forks/pypubsub/src", os.path.join(versionPath, "forks/pypubsub"))
+		copyFile("H:/Python/modules/forks/sqlalchemy", os.path.join(versionPath, "forks"))
+
+	print("Creating Installer...")
 	exe = build_innoSetup()
 
-	exe.name = "Material_Tracker"
+	exe.name = "Material_Tracker2"
 	exe.publisher = "Decatur Mold"
 	exe.icon = f"{directory}/resources/startIcon.ico"
 	exe.publisherWebsite = "https://www.decaturmold.com/"
@@ -1548,4 +1604,4 @@ if (__name__ == "__main__"):
 	exe.setDesktop(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
 	exe.setStartMenu(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
 
-	exe.create(outputDir = "\\\\dmte3\\MaterialDB\\Versions\\v3_1_0")
+	exe.create(outputDir = versionPath)
