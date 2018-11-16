@@ -47,6 +47,8 @@ class Utilities(MyUtilities.common.Ensure):
 	@classmethod
 	def ensure_filePath(cls, filePath, *, ending = None, raiseError = True, default = None):
 		if (filePath is None):
+			if (callable(default)):
+				return default()
 			return default
 			
 		if ((ending is not None) and (not filePath.endswith(ending))):
@@ -55,6 +57,8 @@ class Utilities(MyUtilities.common.Ensure):
 		if (not os.path.exists(filePath)):
 			if (raiseError):
 				raise FileNotFoundError(filePath)
+			if (callable(default)):
+				return default()
 			return default
 		return filePath
 
@@ -1027,6 +1031,12 @@ class Exe_InnoSetup(Utilities):
 		return value or uuid.uuid4()
 
 	@MyUtilities.common.lazyProperty()
+	def name(self, value, *, default = "MyApp"):
+		"""What the program is called."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
 	def version(self, value, *, default = "unknown"):
 		"""What version the program is."""
 		
@@ -1271,10 +1281,10 @@ class Exe_InnoSetup(Utilities):
 		return self.ensure_filePath(value, ending = ".iss", default = default)
 
 	@MyUtilities.common.lazyProperty()
-	def pythonPath(self, value, *, default = "\\\\dmte3\\MaterialDB\\Python36\\"):
+	def pythonPath(self, value):
 		"""Where pythonw.exe is installed at."""
 		
-		return self.ensure_filePath(value, ending = "python.exe", default = default)
+		return self.ensure_filePath(value, ending = "python.exe", default = lambda: os.path.dirname(sys.executable))
 
 	@MyUtilities.common.lazyProperty()
 	def script(self, value, *, default = None):
@@ -1550,58 +1560,58 @@ def copyFile(source, destination):
 			continue
 		copyFile(os.path.join(source, item), os.path.join(destination, os.path.basename(source)))
 
-if (__name__ == "__main__"):
-	directory = "H:/Python/Material_Tracker"
-	sys.path.append(os.path.dirname(directory))
+# if (__name__ == "__main__"):
+# 	directory = "H:/Python/Material_Tracker"
+# 	sys.path.append(os.path.dirname(directory))
 
-	import Material_Tracker.__version__
-	version = f"v{Material_Tracker.__version__.major}_{Material_Tracker.__version__.minor}_{Material_Tracker.__version__.micro}{Material_Tracker.__version__.suffix}"
-	versionPath = os.path.join("\\\\dmte3\\MaterialDB\\Versions", version)
-	if (not os.path.exists(versionPath)):
-		print("Copying version files...")
-		os.makedirs(versionPath, exist_ok = True)
+# 	import Material_Tracker.__version__
+# 	version = f"v{Material_Tracker.__version__.major}_{Material_Tracker.__version__.minor}_{Material_Tracker.__version__.micro}{Material_Tracker.__version__.suffix}"
+# 	versionPath = os.path.join("\\\\dmte3\\MaterialDB\\Versions", version)
+# 	if (not os.path.exists(versionPath)):
+# 		print("Copying version files...")
+# 		os.makedirs(versionPath, exist_ok = True)
 
-		source = "H:/Python/Material_Tracker/"
-		for fileName in ("__version__.py", "_CHANGELOG.md", "controller.py", "runMe.py", "resources"):
-			copyFile(os.path.join(source, fileName), versionPath)
-		for fileName in ("Datalogic_USBCOMInstaller.msi",):
-			copyFile(os.path.join(source, "docs", fileName), os.path.join(versionPath, "docs"))
+# 		source = "H:/Python/Material_Tracker/"
+# 		for fileName in ("__version__.py", "_CHANGELOG.md", "controller.py", "runMe.py", "resources"):
+# 			copyFile(os.path.join(source, fileName), versionPath)
+# 		for fileName in ("Datalogic_USBCOMInstaller.msi",):
+# 			copyFile(os.path.join(source, "docs", fileName), os.path.join(versionPath, "docs"))
 
-		for fileName in ("__init__.py", "controller.py", "splash.py", "version.py", "LICENSE_forSections.py", "test_GUI_Maker.py"):
-			copyFile(os.path.join("H:/Python/modules/GUI_Maker", fileName), os.path.join(versionPath, "GUI_Maker"))
+# 		for fileName in ("__init__.py", "controller.py", "splash.py", "version.py", "LICENSE_forSections.py", "test_GUI_Maker.py"):
+# 			copyFile(os.path.join("H:/Python/modules/GUI_Maker", fileName), os.path.join(versionPath, "GUI_Maker"))
 
-		for fileName in ("__init__.py", "common.py", "debugging.py", "wxPython.py", "LICENSE_forSections.py"):
-			copyFile(os.path.join("H:/Python/modules/Utilities", fileName), os.path.join(versionPath, "Utilities"))
+# 		for fileName in ("__init__.py", "common.py", "debugging.py", "wxPython.py", "LICENSE_forSections.py"):
+# 			copyFile(os.path.join("H:/Python/modules/Utilities", fileName), os.path.join(versionPath, "Utilities"))
 
-		for fileName in ("__init__.py", "controller.py"):
-			copyFile(os.path.join("H:/Python/modules/API_Com", fileName), os.path.join(versionPath, "API_Com"))
+# 		for fileName in ("__init__.py", "controller.py"):
+# 			copyFile(os.path.join("H:/Python/modules/API_Com", fileName), os.path.join(versionPath, "API_Com"))
 
-		for fileName in ("__init__.py", "controller.py"):
-			copyFile(os.path.join("H:/Python/modules/API_Security", fileName), os.path.join(versionPath, "API_Security"))
+# 		for fileName in ("__init__.py", "controller.py"):
+# 			copyFile(os.path.join("H:/Python/modules/API_Security", fileName), os.path.join(versionPath, "API_Security"))
 
-		for fileName in ("__init__.py", "controller.py", "version.py"):
-			copyFile(os.path.join("H:/Python/modules/API_Excel", fileName), os.path.join(versionPath, "API_Excel"))
+# 		for fileName in ("__init__.py", "controller.py", "version.py"):
+# 			copyFile(os.path.join("H:/Python/modules/API_Excel", fileName), os.path.join(versionPath, "API_Excel"))
 
-		for fileName in ("__init__.py", "controller.py", "version.py"):
-			copyFile(os.path.join("H:/Python/modules/API_Database", fileName), os.path.join(versionPath, "API_Database"))
-		copyFile("H:/Python/modules/API_Database/alembic_templates", os.path.join(versionPath, "API_Database/alembic_templates"))
+# 		for fileName in ("__init__.py", "controller.py", "version.py"):
+# 			copyFile(os.path.join("H:/Python/modules/API_Database", fileName), os.path.join(versionPath, "API_Database"))
+# 		copyFile("H:/Python/modules/API_Database/alembic_templates", os.path.join(versionPath, "API_Database/alembic_templates"))
 
-		copyFile("H:/Python/modules/forks/__init__.py", os.path.join(versionPath, "forks"))
-		copyFile("H:/Python/modules/forks/objectlistview/__init__.py", os.path.join(versionPath, "forks/objectlistview"))
-		copyFile("H:/Python/modules/forks/objectlistview/ObjectListView", os.path.join(versionPath, "forks/objectlistview"))
-		copyFile("H:/Python/modules/forks/pypubsub/__init__.py", os.path.join(versionPath, "forks/pypubsub"))
-		copyFile("H:/Python/modules/forks/pypubsub/src", os.path.join(versionPath, "forks/pypubsub"))
-		copyFile("H:/Python/modules/forks/sqlalchemy", os.path.join(versionPath, "forks"))
+# 		copyFile("H:/Python/modules/forks/__init__.py", os.path.join(versionPath, "forks"))
+# 		copyFile("H:/Python/modules/forks/objectlistview/__init__.py", os.path.join(versionPath, "forks/objectlistview"))
+# 		copyFile("H:/Python/modules/forks/objectlistview/ObjectListView", os.path.join(versionPath, "forks/objectlistview"))
+# 		copyFile("H:/Python/modules/forks/pypubsub/__init__.py", os.path.join(versionPath, "forks/pypubsub"))
+# 		copyFile("H:/Python/modules/forks/pypubsub/src", os.path.join(versionPath, "forks/pypubsub"))
+# 		copyFile("H:/Python/modules/forks/sqlalchemy", os.path.join(versionPath, "forks"))
 
-	print("Creating Installer...")
-	exe = build_innoSetup()
+# 	print("Creating Installer...")
+# 	exe = build_innoSetup()
 
-	exe.name = "Material_Tracker2"
-	exe.publisher = "Decatur Mold"
-	exe.icon = f"{directory}/resources/startIcon.ico"
-	exe.publisherWebsite = "https://www.decaturmold.com/"
+# 	exe.name = "Material_Tracker2"
+# 	exe.publisher = "Decatur Mold"
+# 	exe.icon = f"{directory}/resources/startIcon.ico"
+# 	exe.publisherWebsite = "https://www.decaturmold.com/"
 
-	exe.setDesktop(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
-	exe.setStartMenu(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
+# 	exe.setDesktop(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
+# 	exe.setStartMenu(f"{directory}/runMe.py", workingDir = "\\\\dmte3\\MaterialDB", params = ("-cd",))
 
-	exe.create(outputDir = versionPath)
+# 	exe.create(outputDir = versionPath)
