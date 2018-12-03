@@ -1,15 +1,29 @@
 #Version: 3.0.0
 
+import re
 import os
 import sys
+import abc
 import shutil
 import collections
 
-import re
-import abc
-import uuid
+import zipfile
 import inspect
 import importlib
+import subprocess
+
+import uuid
+import stat
+import site
+import glob
+import modulefinder
+
+import py2exe
+import cx_Freeze
+# import nsist
+import forks.pynsist.nsist as nsist #Use my own fork
+
+from distutils.core import setup
 
 import Utilities as MyUtilities
 
@@ -43,7 +57,7 @@ def build_pynsist(*args, **kwargs):
 def build_innoSetup(*args, **kwargs):
 	return Exe_InnoSetup(*args, **kwargs)
 
-class Utilities(MyUtilities.common.Ensure):
+class Utilities(MyUtilities.common.EnsureFunctions):
 	@classmethod
 	def ensure_filePath(cls, filePath, *, ending = None, raiseError = True, default = None):
 		if (filePath is None):
@@ -133,8 +147,6 @@ class Exe_Base(Utilities, metaclass = abc.ABCMeta):
 			"""An Error handler for shutil.rmtree.
 			Modified code from Justin Peel on https://stackoverflow.com/questions/2656322/shutil-rmtree-fails-on-windows-with-access-is-denied
 			"""
-
-			import stat
 
 			if (not os.access(path, os.W_OK)):
 				os.chmod(path, stat.S_IWUSR)
@@ -419,10 +431,6 @@ class Exe_Py2Exe(Exe_Base):
 		Example Input: Exe_Py2Exe("runMe")
 		"""
 
-		import py2exe
-		import zipfile
-		from distutils.core import setup
-
 		self.original_copy_files = py2exe.runtime.Runtime.copy_files
 		py2exe.runtime.Runtime.copy_files = self.better_copy_files
 
@@ -556,8 +564,6 @@ class Exe_Py2Exe(Exe_Base):
 		#Ensure correct format
 		module = module.lower()
 
-		#Import the module so that the modules within can be assessed
-
 		#Check the modules for key modules that need special attention
 		##win32com
 		if ((module == "win32com") or (module == "excelmanipulator")):
@@ -646,9 +652,6 @@ class Exe_CxFreeze(Exe_Base):
 
 		Example Input: Exe_CxFreeze("runMe")
 		"""
-
-		import cx_Freeze
-		from distutils.core import setup
 
 		super().__init__(*args, **kwargs)
 		
@@ -821,13 +824,6 @@ class Exe_Pynsist(Exe_Base):
 
 		Example Input: Exe_Pynsist("runMe")
 		"""
-
-		import site
-		import glob
-		import modulefinder
-
-		# import nsist
-		import forks.pynsist.nsist as nsist #Use my own fork
 
 		super().__init__(mainFile)
 
@@ -1533,7 +1529,6 @@ class Exe_InnoSetup(Utilities):
 		for variable in _lazyProperties_all[self.__class__.__name__]:
 			innoVars.setdefault(variable, getattr(self, variable))
 
-		import subprocess
 		args = [
 			os.path.join(self.innoSetup_installDir, "iscc.exe"), 
 			*yieldSwitches(), 
