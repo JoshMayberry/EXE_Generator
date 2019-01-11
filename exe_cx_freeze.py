@@ -2,7 +2,11 @@
 
 import os
 import sys
+
 import glob
+import stat
+import shutil
+import subprocess
 
 import cx_Freeze
 from distutils.core import setup
@@ -22,11 +26,10 @@ else:
 ##py -m pip install
 	# cx_Freeze
 
-#Import User Modules
-if (__name__ == "__main__"):
-	sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__)))) #Allows to import from the parent directory
-
 def clearDirectory(directory):
+	if (not os.path.exists(directory)):
+		return
+
 	def onerror(function, path, exc_info):
 		"""An Error handler for shutil.rmtree.
 		Modified code from Justin Peel on https://stackoverflow.com/questions/2656322/shutil-rmtree-fails-on-windows-with-access-is-denied
@@ -46,8 +49,10 @@ def clearDirectory(directory):
 def build(*args, **kwargs):
 	return Controller(*args, **kwargs)
 
+_srcfile = os.path.normcase(build.__code__.co_filename)
+
 class Controller(Utilities):
-	def __init__(self):
+	def __init__(self, script = None):
 		"""Used to create a .exe file.
 		For good module structure practices, see: http://blog.habnab.it/blog/2013/07/21/python-packages-and-you/
 		Special thanks to Ned Deily for how to detect 32 bit vs 64 bit on https://stackoverflow.com/questions/6107905/which-command-to-use-for-checking-whether-python-is-64bit-or-32bit/12057504#12057504
@@ -65,7 +70,19 @@ class Controller(Utilities):
 		self.modules_exclude = set()
 		self.data_files_compressed = set()
 
+		self.script = script
+
 	#Properties
+	@MyUtilities.common.makeProperty(default = None)
+	class script():
+		"""What the .py file the .exe will run."""
+
+		def setter(self, value: str):
+			self._script = value
+
+		def getter(self):
+			return self._script
+
 	@MyUtilities.common.makeProperty(default = "MyApp")
 	class title():
 		"""What the program is called."""
@@ -94,7 +111,7 @@ class Controller(Utilities):
 			if (value):
 				self._icon = os.path.realpath(self.ensure_filePath(value, ending = ".ico"))
 			else:
-				self._icon = ""
+				self._icon = None
 
 		def getter(self):
 			return self._icon
@@ -149,7 +166,16 @@ class Controller(Utilities):
 		"""
 
 		def setter(self, value: str):
-			self._destination = value
+			if (os.path.isabs(value)):
+				self._destination = value
+				return
+
+			#Be relative to the file that called this function, not this module
+			if (__name__ == "__main__"):
+				frame = MyUtilities.common.getCurrentframe(exclude = MyUtilities.common._srcfile)
+			else:
+				frame = MyUtilities.common.getCurrentframe(exclude = (_srcfile, MyUtilities.common._srcfile))
+			self.destination = os.path.join(os.path.dirname(frame.f_code.co_filename), value)
 
 		def getter(self):
 			return self._destination
@@ -176,6 +202,19 @@ class Controller(Utilities):
 
 		def getter(self):
 			return self._optimized
+
+	@MyUtilities.common.makeProperty(default = True)
+	class include_cmd():
+		"""Determines if the cmd window is shown or not 
+			- If True: The cmd window will come up, which can be used for debugging.
+			- If False: No cmd window will come up. Erros are logged in a .txt in the same folder as the .exe file and with the same name as the .exe
+		"""
+
+		def setter(self, value: str):
+			self._include_cmd = value
+
+		def getter(self):
+			return self._include_cmd
 
 	#User Functions
 	def excludeModule(self, moduleName):
@@ -226,30 +265,34 @@ class Controller(Utilities):
 			for item in glob.iglob(_filePath, recursive = recursive):
 				container.add((item, folder))
 
-	def create(self, *, include_cmd: bool = False, freshBuildDir = True):
+	def create(self, *, freshBuildDir: bool = True):
 		"""Creates the .exe file
 
-		include_cmd (bool) - Determines if the cmd window is shown or not 
-			- If True: The cmd window will come up, which can be used for debugging.
-			- If False: No cmd window will come up. Erros are logged in a .txt in the same folder as the .exe file and with the same name as the .exe
-		
 		Example Input: create()
-		Example Input: create(True)
 		"""
 
 		def yieldKwargs_console():
-			nonlocal self, include_cmd
+			nonlocal self
 
-			if (include_cmd):
+			yield "script", self.script
+
+			if (self.include_cmd):
 				yield "base", None
 			else:
 				yield "base", "Win32GUI"
 
-			yield "icon", self.icon
+			if (self.icon):
+				yield "icon", self.icon
+
 			yield "initScript", self.preScript
 			yield "targetName", self.shortcut_name
 
 		def yieldKwargs_options():
+			nonlocal self
+
+			yield "build_exe", dict(yieldKwargs_build_exe())
+
+		def yieldKwargs_build_exe():
 			nonlocal self
 
 			yield "build_exe", self.destination
@@ -258,36 +301,59 @@ class Controller(Utilities):
 				yield "packages", list(self.modules)
 			if (self.modules_exclude):
 				yield "excludes", list(self.modules_exclude)
+
 			# if (self.modules_include):
 			# 	yield "includes", list(self.modules_include)
+
 			if (self.data_files):
 				yield "include_files", list(self.data_files)
 
 			if (self.optimized):
 				yield "zip_include_packages", "*"
 				yield "zip_exclude_packages", ""
-
-				yield "compressed", True
 				yield "optimize", 2
 
 		####################################
+
+		if (not self.script):
+			errorMessage = "Must define 'self.script' before a .exe file can be created"
+			raise ValueError(errorMessage)
 
 		if (freshBuildDir):
 			clearDirectory(self.destination)
 
 		print("Creating .exe file...")
+		options = dict(yieldKwargs_options())
+		console = dict(yieldKwargs_console())
+
+		print("Options:", options)
+		print("Console:", console)
+
+		if (len(sys.argv) is 1):
+			sys.argv.append("build")
 		cx_Freeze.setup(
-			name = self.title,
-			author = self.author,
-			version = self.version,
-			description = self.description,
-			author_email = self.author_email,
-			options = {
-				"build_exe": dict(yieldKwargs_options()),
-			},
-			executables = [cx_Freeze.Executable(**dict(yield_kwargs_console()))]
+			name = self.title, 
+			author = self.author, 
+			version = self.version, 
+			description = self.description, 
+			author_email = self.author_email, 
+
+			options = options, 
+			executables = [cx_Freeze.Executable(**console)], 
 		)
 
+	def makeInstaller(self):
+		"""Uses iExpress to create an installer for the .exe file.
+
+		Example Use: makeInstaller()
+		"""
+
+		def yieldCommands():
+			yield "iexpress"
+			yield "/N"
+
+		subprocess.Popen(tuple(yieldCommands()), stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+
 if (__name__ == "__main__"):
-	exe = build()
+	exe = build("test.py")
 	exe.create()
