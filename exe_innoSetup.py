@@ -14,6 +14,7 @@ import site
 from distutils.core import setup
 
 from .utilities import Utilities
+import MyUtilities.common
 
 #Required Software
 	#Inno Setup: http://www.jrsoftware.org/isdl.php
@@ -28,7 +29,14 @@ def build(*args, **kwargs):
 class Exe_InnoSetup(Utilities):
 	"""Install Inno Setup at: http://www.jrsoftware.org/isdl.php"""
 
-	def __init__(self, **kwargs):
+	cx_freeze_vars = {
+		"name": "title",
+		"icon": "icon",
+		"version": "version",
+		"outputDir": "destination",
+	} #{innoSetup variable, cx_freeze variable}
+
+	def __init__(self, exe = None, **kwargs):
 		"""Helps create an inno setup installer.
 
 		innoSetup_installDir (str) - Where Inno Setup was installed to
@@ -37,6 +45,11 @@ class Exe_InnoSetup(Utilities):
 		"""
 
 		self.shortcutCatalogue = {}
+
+		self.exe = exe
+		if (self.exe is not None):
+			for myVar, yourVar in self.cx_freeze_vars.items():
+				setattr(self, myVar, getattr(self.exe, yourVar))
 
 		for variable, value in kwargs.items():
 			setattr(self, variable, value)
@@ -54,6 +67,12 @@ class Exe_InnoSetup(Utilities):
 
 	@MyUtilities.common.lazyProperty()
 	def name(self, value, *, default = "MyApp"):
+		"""What the program is called."""
+		
+		return value or default
+
+	@MyUtilities.common.lazyProperty()
+	def outputDir(self, value, *, default = None):
 		"""What the program is called."""
 		
 		return value or default
@@ -531,8 +550,9 @@ class Exe_InnoSetup(Utilities):
 		def yieldSwitches():
 			nonlocal outputDir, quiet, innoVars
 
-			if (outputDir is not None):
-				yield f"/O{outputDir}"
+			_outputDir = outputDir or self.outputDir
+			if (_outputDir is not None):
+				yield f"/O{_outputDir}"
 
 			if (quiet is not None):
 				if (quiet):

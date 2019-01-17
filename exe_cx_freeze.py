@@ -6,7 +6,6 @@ import sys
 import glob
 import stat
 import shutil
-import subprocess
 
 import cx_Freeze
 from distutils.core import setup
@@ -341,18 +340,6 @@ class Controller(Utilities):
 			options = options, 
 			executables = [cx_Freeze.Executable(**console)], 
 		)
-
-	def makeInstaller(self):
-		"""Uses iExpress to create an installer for the .exe file.
-
-		Example Use: makeInstaller()
-		"""
-
-		def yieldCommands():
-			yield "iexpress"
-			yield "/N"
-
-		subprocess.Popen(tuple(yieldCommands()), stdin = subprocess.PIPE, stdout = subprocess.PIPE)
 
 if (__name__ == "__main__"):
 	exe = build("test.py")
