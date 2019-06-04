@@ -9,23 +9,7 @@ data_files_zip = []
 absPath = re.sub("([^\\\\])[\\\\]([^\\\\])", r"\1/\2", os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
 class Utilities(MyUtilities.common.EnsureFunctions):
-	@classmethod
-	def ensure_filePath(cls, filePath, *, ending = None, raiseError = True, default = None, checkExists = True):
-		if (filePath is None):
-			if (callable(default)):
-				return default()
-			return default
-			
-		if ((ending is not None) and (not filePath.endswith(ending))):
-			filePath += ending
-
-		if (checkExists and (not os.path.exists(filePath))):
-			if (raiseError):
-				raise FileNotFoundError(filePath)
-			if (callable(default)):
-				return default()
-			return default
-		return filePath
+	pass
 
 class Exe_Base(Utilities, metaclass = abc.ABCMeta):
 	def __init__(self, mainFile, name = None, version = None, author = None, description = None):

@@ -65,6 +65,8 @@ class Controller(Utilities):
 
 		self.modules = set()
 		self.data_files = set()
+		self.zip_include = set()
+		self.zip_exclude_packages = set()
 		self.modules_include = set()
 		self.modules_exclude = set()
 		self.data_files_compressed = set()
@@ -236,6 +238,13 @@ class Controller(Utilities):
 
 		self.modules.add(moduleName)
 
+	def includeZip(self, source, destination):
+		#Example Input: includeZip("C:/Users/jmayberry/AppData/Local/Programs/Python/Python36-32/Lib/site-packages/validator_collection/_version.py", "validator_collection/_version.pyc")
+		self.zip_include.add((source, destination))
+
+	def excludeZip(self, moduleName):
+		self.zip_exclude_packages.add(moduleName)
+
 	def includeFile(self, filePath: str, *, recursive: bool = True, folder: str = "", compressed = True):
 		"""Includes the given file in the .exe.
 
@@ -291,6 +300,7 @@ class Controller(Utilities):
 
 			yield "build_exe", dict(yieldKwargs_build_exe())
 
+		#See: https://cx-freeze.readthedocs.io/en/latest/distutils.html#build-exe
 		def yieldKwargs_build_exe():
 			nonlocal self
 
@@ -307,9 +317,17 @@ class Controller(Utilities):
 			if (self.data_files):
 				yield "include_files", list(self.data_files)
 
+			if (self.zip_include):
+				yield "zip_includes", list(self.zip_include)
+
 			if (self.optimized):
 				yield "zip_include_packages", "*"
-				yield "zip_exclude_packages", ""
+
+				if (self.zip_exclude_packages):
+					yield "zip_exclude_packages", list(self.zip_exclude_packages)
+				else:
+					yield "zip_exclude_packages", ""
+
 				yield "optimize", 2
 
 		####################################
